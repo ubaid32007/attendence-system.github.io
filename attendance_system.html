@@ -1,0 +1,1660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>FaceAttend — AI Attendance System</title>
+<script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.14/dist/face-api.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: #1f2d45;
+    --accent: #00e5ff;
+    --accent2: #7c3aed;
+    --green: #10b981;
+    --red: #ef4444;
+    --yellow: #f59e0b;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --mono: 'Space Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Animated grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app { position: relative; z-index: 1; }
+
+  /* ─── HEADER ─── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 28px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(10,14,26,0.9);
+    backdrop-filter: blur(12px);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+
+  .logo-text {
+    font-family: var(--mono);
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+
+  .logo-text span { color: var(--accent); }
+
+  .status-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    font-family: var(--mono);
+    color: var(--muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 5px 12px;
+  }
+
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: background 0.3s;
+  }
+
+  .status-dot.ready { background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 2s infinite; }
+  .status-dot.loading { background: var(--yellow); animation: blink 0.8s infinite; }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* ─── TABS ─── */
+  .tab-bar {
+    display: flex;
+    padding: 0 28px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(17,24,39,0.8);
+    gap: 4px;
+  }
+
+  .tab {
+    padding: 14px 20px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .tab:hover { color: var(--text); }
+  .tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  .tab-badge {
+    background: var(--accent2);
+    color: white;
+    font-size: 0.65rem;
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-family: var(--mono);
+  }
+
+  /* ─── PAGES ─── */
+  .page { display: none; padding: 28px; max-width: 1100px; margin: 0 auto; }
+  .page.active { display: block; }
+
+  /* ─── SECTION HEADING ─── */
+  .section-title {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+
+  h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 24px;
+    line-height: 1.2;
+  }
+
+  /* ─── CARDS ─── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px;
+    margin-bottom: 20px;
+  }
+
+  .card-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--muted);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* ─── GRID LAYOUTS ─── */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  @media (max-width: 700px) {
+    .grid-2 { grid-template-columns: 1fr; }
+    .tab { padding: 12px 14px; font-size: 0.72rem; }
+    .page { padding: 16px; }
+    header { padding: 14px 16px; }
+  }
+
+  /* ─── VIDEO / CANVAS ─── */
+  .video-wrap {
+    position: relative;
+    width: 100%;
+    background: #000;
+    border-radius: 10px;
+    overflow: hidden;
+    aspect-ratio: 4/3;
+    border: 1px solid var(--border);
+  }
+
+  .video-wrap video,
+  .video-wrap canvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+  }
+
+  .video-wrap canvas { pointer-events: none; }
+
+  .video-label {
+    position: absolute;
+    top: 10px; left: 10px;
+    background: rgba(0,0,0,0.7);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    padding: 3px 8px;
+    border-radius: 4px;
+    letter-spacing: 1px;
+    z-index: 10;
+  }
+
+  .corner {
+    position: absolute;
+    width: 18px; height: 18px;
+    border-color: var(--accent);
+    border-style: solid;
+    opacity: 0.7;
+    z-index: 5;
+  }
+
+  .corner.tl { top: 8px; left: 8px; border-width: 2px 0 0 2px; }
+  .corner.tr { top: 8px; right: 8px; border-width: 2px 2px 0 0; }
+  .corner.bl { bottom: 8px; left: 8px; border-width: 0 0 2px 2px; }
+  .corner.br { bottom: 8px; right: 8px; border-width: 0 2px 2px 0; }
+
+  /* ─── FORM ─── */
+  .form-group { margin-bottom: 14px; }
+
+  label {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  input[type="text"],
+  input[type="number"],
+  select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  input:focus, select:focus { border-color: var(--accent); }
+
+  /* ─── BUTTONS ─── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+    letter-spacing: 0.3px;
+    font-family: var(--sans);
+  }
+
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+  }
+  .btn-primary:hover:not(:disabled) { background: #33eaff; transform: translateY(-1px); box-shadow: 0 4px 20px rgba(0,229,255,0.3); }
+
+  .btn-secondary {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+
+  .btn-danger {
+    background: rgba(239,68,68,0.15);
+    color: var(--red);
+    border: 1px solid rgba(239,68,68,0.3);
+  }
+  .btn-danger:hover:not(:disabled) { background: rgba(239,68,68,0.25); }
+
+  .btn-success {
+    background: var(--green);
+    color: #000;
+  }
+  .btn-success:hover:not(:disabled) { background: #34d399; transform: translateY(-1px); }
+
+  .btn-purple {
+    background: var(--accent2);
+    color: white;
+  }
+  .btn-purple:hover:not(:disabled) { background: #8b5cf6; transform: translateY(-1px); }
+
+  .btn-group { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+
+  /* ─── TOAST ─── */
+  #toast-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .toast {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 18px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    animation: slideIn 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 260px;
+    max-width: 340px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+
+  .toast.success { border-left: 3px solid var(--green); }
+  .toast.error { border-left: 3px solid var(--red); }
+  .toast.info { border-left: 3px solid var(--accent); }
+
+  @keyframes slideIn { from { transform: translateX(100px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+  /* ─── STUDENT LIST ─── */
+  .student-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+    margin-top: 14px;
+  }
+
+  .student-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    text-align: center;
+    position: relative;
+    transition: border-color 0.2s;
+  }
+
+  .student-card:hover { border-color: var(--accent); }
+
+  .student-avatar {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    margin: 0 auto 8px;
+    overflow: hidden;
+  }
+
+  .student-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+  .student-name {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .student-id {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--muted);
+  }
+
+  .delete-btn {
+    position: absolute;
+    top: 6px; right: 6px;
+    width: 20px; height: 20px;
+    background: rgba(239,68,68,0.2);
+    border: none;
+    border-radius: 4px;
+    color: var(--red);
+    font-size: 0.7rem;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .student-card:hover .delete-btn { display: flex; }
+
+  /* ─── ATTENDANCE TABLE ─── */
+  .table-wrap {
+    overflow-x: auto;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+
+  thead {
+    background: var(--surface2);
+  }
+
+  th {
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--muted);
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 11px 16px;
+    border-bottom: 1px solid rgba(31,45,69,0.5);
+    color: var(--text);
+  }
+
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(0,229,255,0.03); }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    font-family: var(--mono);
+  }
+
+  .badge-present { background: rgba(16,185,129,0.15); color: var(--green); border: 1px solid rgba(16,185,129,0.3); }
+  .badge-late { background: rgba(245,158,11,0.15); color: var(--yellow); border: 1px solid rgba(245,158,11,0.3); }
+
+  /* ─── STATS ─── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+
+  .stat-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+  }
+
+  .stat-num {
+    font-family: var(--mono);
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .stat-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--muted);
+  }
+
+  /* ─── RECOGNITION OVERLAY ─── */
+  .recognition-feed {
+    position: relative;
+  }
+
+  .scan-line {
+    position: absolute;
+    left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    animation: scan 3s linear infinite;
+    z-index: 6;
+    pointer-events: none;
+  }
+
+  @keyframes scan {
+    0% { top: 0; opacity: 1; }
+    90% { opacity: 1; }
+    100% { top: 100%; opacity: 0; }
+  }
+
+  /* ─── LOADING SCREEN ─── */
+  #loading-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    transition: opacity 0.5s;
+  }
+
+  #loading-overlay.hidden { opacity: 0; pointer-events: none; }
+
+  .loading-logo {
+    font-family: var(--mono);
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 2px;
+  }
+
+  .loading-bar-wrap {
+    width: 280px;
+    height: 3px;
+    background: var(--surface2);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .loading-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent2), var(--accent));
+    border-radius: 3px;
+    width: 0%;
+    transition: width 0.3s ease;
+  }
+
+  .loading-msg {
+    font-size: 0.78rem;
+    font-family: var(--mono);
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  /* ─── EMPTY STATE ─── */
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--muted);
+  }
+
+  .empty-state .icon { font-size: 2.5rem; margin-bottom: 12px; }
+  .empty-state p { font-size: 0.85rem; line-height: 1.6; }
+
+  /* ─── SESSION FILTER ─── */
+  .filter-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+    align-items: flex-end;
+  }
+
+  .filter-row .form-group { margin: 0; flex: 1; min-width: 160px; }
+
+  /* Capture preview */
+  .capture-preview {
+    width: 100%;
+    aspect-ratio: 4/3;
+    background: var(--surface2);
+    border-radius: 10px;
+    overflow: hidden;
+    border: 2px dashed var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 0.85rem;
+    transition: border-color 0.3s;
+  }
+
+  .capture-preview.has-image { border-style: solid; border-color: var(--green); }
+  .capture-preview img { width: 100%; height: 100%; object-fit: cover; }
+
+  /* Progress for capture */
+  .capture-progress {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .capture-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--border);
+    transition: background 0.3s;
+  }
+
+  .capture-dot.filled { background: var(--green); }
+
+  .info-box {
+    background: rgba(0,229,255,0.05);
+    border: 1px solid rgba(0,229,255,0.15);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 0.8rem;
+    color: var(--muted);
+    line-height: 1.6;
+    margin-bottom: 14px;
+  }
+
+  .info-box strong { color: var(--accent); }
+
+  /* Confidence bar */
+  .conf-bar {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+
+  .conf-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.3s;
+  }
+
+  /* Recognized list */
+  .recognized-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 260px;
+    overflow-y: auto;
+  }
+
+  .recognized-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    animation: slideIn 0.3s ease;
+  }
+
+  .recognized-item.new { border-color: var(--green); }
+
+  .ri-avatar {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.9rem;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .ri-info { flex: 1; min-width: 0; }
+  .ri-name { font-weight: 600; font-size: 0.85rem; }
+  .ri-time { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); }
+  .ri-conf { font-family: var(--mono); font-size: 0.65rem; }
+
+  input[type="checkbox"] { accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; }
+
+  .scrollable { max-height: 360px; overflow-y: auto; }
+  .scrollable::-webkit-scrollbar { width: 4px; }
+  .scrollable::-webkit-scrollbar-track { background: transparent; }
+  .scrollable::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<div id="loading-overlay">
+  <div class="loading-logo">⬡ FACEATTEND</div>
+  <div class="loading-bar-wrap">
+    <div class="loading-bar" id="loading-bar"></div>
+  </div>
+  <div class="loading-msg" id="loading-msg">INITIALIZING AI MODELS...</div>
+</div>
+
+<div id="toast-container"></div>
+
+<div class="app">
+  <header>
+    <div class="logo">
+      <div class="logo-icon">👁</div>
+      <div class="logo-text">Face<span>Attend</span></div>
+    </div>
+    <div class="status-pill">
+      <div class="status-dot loading" id="status-dot"></div>
+      <span id="status-text">Loading Models</span>
+    </div>
+  </header>
+
+  <div class="tab-bar">
+    <div class="tab active" onclick="switchTab('register')">
+      <span>👤</span> Register Students
+    </div>
+    <div class="tab" onclick="switchTab('attendance')" id="tab-attendance">
+      <span>📷</span> Mark Attendance
+    </div>
+    <div class="tab" onclick="switchTab('records')" id="tab-records">
+      <span>📊</span> Records
+      <span class="tab-badge" id="records-badge">0</span>
+    </div>
+  </div>
+
+  <!-- ═══════════════ REGISTER PAGE ═══════════════ -->
+  <div class="page active" id="page-register">
+    <div class="section-title">Step 1</div>
+    <h2>Register Students</h2>
+
+    <div class="grid-2">
+      <div>
+        <div class="card">
+          <div class="card-title">📋 Student Details</div>
+
+          <div class="info-box">
+            <strong>How it works:</strong> Enter the student's info, then capture multiple photos from different angles to improve recognition accuracy.
+          </div>
+
+          <div class="form-group">
+            <label>Full Name *</label>
+            <input type="text" id="reg-name" placeholder="e.g. Ahmed Ali" maxlength="50">
+          </div>
+
+          <div class="form-group">
+            <label>Student ID (optional)</label>
+            <input type="text" id="reg-id" placeholder="e.g. CS-2024-001" maxlength="20">
+          </div>
+
+          <div class="form-group">
+            <label>Class / Section (optional)</label>
+            <input type="text" id="reg-class" placeholder="e.g. CS-A" maxlength="20">
+          </div>
+
+          <div class="btn-group">
+            <button class="btn btn-secondary" id="btn-start-reg-cam" onclick="startRegCamera()">📷 Start Camera</button>
+            <button class="btn btn-primary" id="btn-capture-face" onclick="captureFace()" disabled>⊕ Capture Face</button>
+          </div>
+
+          <div class="capture-progress" id="capture-progress"></div>
+
+          <div class="btn-group">
+            <button class="btn btn-success" id="btn-save-student" onclick="saveStudent()" disabled>✓ Save Student</button>
+            <button class="btn btn-secondary" onclick="resetRegForm()">↺ Reset</button>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <div class="card-title">🎥 Camera Preview</div>
+          <div class="video-wrap" id="reg-video-wrap">
+            <video id="reg-video" autoplay muted playsinline></video>
+            <canvas id="reg-canvas"></canvas>
+            <div class="corner tl"></div>
+            <div class="corner tr"></div>
+            <div class="corner bl"></div>
+            <div class="corner br"></div>
+            <div class="video-label" id="reg-label">STANDBY</div>
+          </div>
+
+          <div style="margin-top:12px">
+            <div class="card-title" style="margin-bottom:8px">📸 Captured Samples</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;" id="captured-previews">
+              <div style="color:var(--muted);font-size:0.8rem;padding:8px 0">No captures yet</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Student list -->
+    <div class="card">
+      <div class="card-title" style="justify-content:space-between;display:flex;align-items:center;">
+        <span>👥 Registered Students (<span id="student-count">0</span>)</span>
+        <button class="btn btn-danger" onclick="clearAllStudents()" style="padding:5px 12px;font-size:0.75rem;">🗑 Clear All</button>
+      </div>
+      <div class="student-grid" id="student-grid">
+        <div class="empty-state">
+          <div class="icon">🎓</div>
+          <p>No students registered yet.<br>Add your first student above.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ ATTENDANCE PAGE ═══════════════ -->
+  <div class="page" id="page-attendance">
+    <div class="section-title">Step 2</div>
+    <h2>Mark Attendance</h2>
+
+    <div class="grid-2">
+      <div>
+        <div class="card">
+          <div class="card-title">⚙️ Session Settings</div>
+
+          <div class="form-group">
+            <label>Session / Subject</label>
+            <input type="text" id="session-name" placeholder="e.g. Math — Lecture 01" value="Lecture">
+          </div>
+
+          <div class="form-group">
+            <label>Date</label>
+            <input type="text" id="session-date" readonly>
+          </div>
+
+          <div class="form-group">
+            <label>Recognition Threshold</label>
+            <select id="threshold">
+              <option value="0.45">Strict (0.45) — High Accuracy</option>
+              <option value="0.55" selected>Standard (0.55) — Balanced</option>
+              <option value="0.65">Relaxed (0.65) — Better Coverage</option>
+            </select>
+          </div>
+
+          <div class="btn-group">
+            <button class="btn btn-secondary" id="btn-start-att-cam" onclick="startAttendanceCamera()">📷 Start Camera</button>
+            <button class="btn btn-primary" id="btn-start-scan" onclick="toggleScan()" disabled>▶ Start Scan</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">✅ Recognized (<span id="rec-count">0</span>)</div>
+          <div class="recognized-list scrollable" id="recognized-list">
+            <div class="empty-state" style="padding:20px">
+              <div class="icon">👁</div>
+              <p>Start scanning to recognize faces</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <div class="card-title">🎥 Live Recognition Feed</div>
+          <div class="video-wrap recognition-feed" id="att-video-wrap">
+            <video id="att-video" autoplay muted playsinline></video>
+            <canvas id="att-canvas"></canvas>
+            <div class="scan-line" id="scan-line" style="display:none"></div>
+            <div class="corner tl"></div>
+            <div class="corner tr"></div>
+            <div class="corner bl"></div>
+            <div class="corner br"></div>
+            <div class="video-label" id="att-label">STANDBY</div>
+          </div>
+
+          <div style="margin-top:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+            <div style="font-size:0.78rem;color:var(--muted);">
+              Registered: <span style="color:var(--accent);font-family:var(--mono)" id="att-reg-count">0</span> students
+            </div>
+            <div class="btn-group" style="margin:0;">
+              <button class="btn btn-success" onclick="saveAttendanceSession()">💾 Save Session</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ RECORDS PAGE ═══════════════ -->
+  <div class="page" id="page-records">
+    <div class="section-title">Records</div>
+    <h2>Attendance Records</h2>
+
+    <div class="stats-row" id="stats-row">
+      <div class="stat-box">
+        <div class="stat-num" id="stat-total">0</div>
+        <div class="stat-label">Total Sessions</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num" id="stat-entries">0</div>
+        <div class="stat-label">Total Entries</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num" id="stat-students">0</div>
+        <div class="stat-label">Unique Students</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num" id="stat-today">0</div>
+        <div class="stat-label">Today's Present</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="filter-row">
+        <div class="form-group">
+          <label>Filter by Date</label>
+          <input type="text" id="filter-date" placeholder="All dates" oninput="renderRecordsTable()">
+        </div>
+        <div class="form-group">
+          <label>Filter by Student</label>
+          <input type="text" id="filter-student" placeholder="Name or ID" oninput="renderRecordsTable()">
+        </div>
+        <div class="form-group">
+          <label>Filter by Session</label>
+          <input type="text" id="filter-session" placeholder="Session name" oninput="renderRecordsTable()">
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button class="btn btn-secondary" onclick="clearFilters()">✕ Clear</button>
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px;">
+        <div style="font-size:0.82rem;color:var(--muted);">
+          Showing <span id="showing-count" style="color:var(--text);font-weight:600">0</span> entries
+        </div>
+        <div class="btn-group" style="margin:0">
+          <button class="btn btn-purple" onclick="exportCSV()">⬇ Export CSV</button>
+          <button class="btn btn-danger" onclick="clearAllRecords()">🗑 Clear All</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Student Name</th>
+              <th>Student ID</th>
+              <th>Class</th>
+              <th>Date</th>
+              <th>Time</th>
+              <th>Session</th>
+              <th>Status</th>
+              <th>Confidence</th>
+            </tr>
+          </thead>
+          <tbody id="records-tbody">
+            <tr>
+              <td colspan="9">
+                <div class="empty-state">
+                  <div class="icon">📋</div>
+                  <p>No attendance records yet.<br>Mark attendance to see records here.</p>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /.app -->
+
+<script>
+// ════════════════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════════════════
+let modelsLoaded = false;
+let regStream = null;
+let attStream = null;
+let scanning = false;
+let scanInterval = null;
+
+let capturedDescriptors = [];   // during registration
+let capturedImages = [];
+
+let students = [];              // {id, name, sid, cls, descriptors[], photoUrl}
+let attendanceRecords = [];     // {id, name, sid, cls, date, time, session, status, confidence}
+
+let recognizedThisSession = {}; // name -> entry (to avoid duplicate)
+let labeledFaceMatchers = [];
+
+// ════════════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════════════
+const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.14/model';
+
+async function loadModels() {
+  const bar = document.getElementById('loading-bar');
+  const msg = document.getElementById('loading-msg');
+
+  const steps = [
+    ['SSD MobileNet (Face Detector)', () => faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL)],
+    ['Face Landmark Model',           () => faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL)],
+    ['Face Recognition Model',        () => faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)],
+    ['Tiny Face Detector',            () => faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL)],
+  ];
+
+  for (let i = 0; i < steps.length; i++) {
+    msg.textContent = `LOADING: ${steps[i][0].toUpperCase()}`;
+    bar.style.width = `${(i / steps.length) * 100}%`;
+    await steps[i][1]();
+  }
+
+  bar.style.width = '100%';
+  msg.textContent = 'READY';
+  modelsLoaded = true;
+
+  setTimeout(() => {
+    document.getElementById('loading-overlay').classList.add('hidden');
+  }, 600);
+
+  document.getElementById('status-dot').className = 'status-dot ready';
+  document.getElementById('status-text').textContent = 'AI Ready';
+
+  loadFromStorage();
+  setSessionDate();
+  updateUI();
+}
+
+window.addEventListener('load', () => {
+  // Wait for face-api to be available
+  const wait = setInterval(() => {
+    if (typeof faceapi !== 'undefined') {
+      clearInterval(wait);
+      loadModels().catch(e => {
+        document.getElementById('loading-msg').textContent = 'ERROR: ' + e.message;
+        console.error(e);
+      });
+    }
+  }, 100);
+});
+
+function setSessionDate() {
+  const now = new Date();
+  document.getElementById('session-date').value = now.toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  });
+}
+
+// ════════════════════════════════════════════════════════
+//  TABS
+// ════════════════════════════════════════════════════════
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+
+  const idx = ['register','attendance','records'].indexOf(tab);
+  document.querySelectorAll('.tab')[idx].classList.add('active');
+  document.getElementById('page-' + tab).classList.add('active');
+
+  if (tab === 'records') renderRecordsTable();
+  if (tab === 'attendance') {
+    document.getElementById('att-reg-count').textContent = students.length;
+    buildFaceMatchers();
+  }
+}
+
+// ════════════════════════════════════════════════════════
+//  STORAGE
+// ════════════════════════════════════════════════════════
+function saveToStorage() {
+  const data = students.map(s => ({
+    ...s,
+    descriptors: s.descriptors.map(d => Array.from(d))
+  }));
+  try {
+    localStorage.setItem('fa_students', JSON.stringify(data));
+    localStorage.setItem('fa_records', JSON.stringify(attendanceRecords));
+  } catch(e) { console.warn('Storage full', e); }
+}
+
+function loadFromStorage() {
+  try {
+    const sd = localStorage.getItem('fa_students');
+    if (sd) {
+      const raw = JSON.parse(sd);
+      students = raw.map(s => ({
+        ...s,
+        descriptors: s.descriptors.map(d => new Float32Array(d))
+      }));
+    }
+    const rd = localStorage.getItem('fa_records');
+    if (rd) attendanceRecords = JSON.parse(rd);
+  } catch(e) { console.warn('Load error', e); }
+}
+
+// ════════════════════════════════════════════════════════
+//  REGISTRATION CAMERA
+// ════════════════════════════════════════════════════════
+async function startRegCamera() {
+  try {
+    if (regStream) { regStream.getTracks().forEach(t => t.stop()); }
+    regStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+      audio: false
+    });
+    const vid = document.getElementById('reg-video');
+    vid.srcObject = regStream;
+    await vid.play();
+    document.getElementById('btn-capture-face').disabled = false;
+    document.getElementById('reg-label').textContent = 'LIVE';
+    toast('Camera started. Position your face in frame.', 'info');
+  } catch(e) {
+    toast('Camera error: ' + e.message, 'error');
+  }
+}
+
+async function captureFace() {
+  if (!modelsLoaded) { toast('Models still loading...', 'error'); return; }
+  const name = document.getElementById('reg-name').value.trim();
+  if (!name) { toast('Please enter student name first', 'error'); return; }
+
+  const vid = document.getElementById('reg-video');
+  const canvas = document.getElementById('reg-canvas');
+
+  document.getElementById('reg-label').textContent = 'DETECTING...';
+
+  const detection = await faceapi
+    .detectSingleFace(vid, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }))
+    .withFaceLandmarks()
+    .withFaceDescriptor();
+
+  if (!detection) {
+    toast('No face detected. Ensure good lighting and face is visible.', 'error');
+    document.getElementById('reg-label').textContent = 'LIVE';
+    return;
+  }
+
+  // Draw detection
+  canvas.width = vid.videoWidth;
+  canvas.height = vid.videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const dims = { width: vid.videoWidth, height: vid.videoHeight };
+  const resized = faceapi.resizeResults(detection, dims);
+
+  // Draw box
+  const box = resized.detection.box;
+  ctx.strokeStyle = '#10b981';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(box.x, box.y, box.width, box.height);
+  ctx.fillStyle = 'rgba(16,185,129,0.15)';
+  ctx.fillRect(box.x, box.y, box.width, box.height);
+
+  // Draw landmarks
+  faceapi.draw.drawFaceLandmarks(canvas, resized);
+
+  capturedDescriptors.push(detection.descriptor);
+
+  // Save thumbnail
+  const thumbCanvas = document.createElement('canvas');
+  thumbCanvas.width = 60; thumbCanvas.height = 60;
+  const tCtx = thumbCanvas.getContext('2d');
+  tCtx.drawImage(vid,
+    Math.max(0, box.x - 10), Math.max(0, box.y - 10),
+    box.width + 20, box.height + 20,
+    0, 0, 60, 60
+  );
+  capturedImages.push(thumbCanvas.toDataURL('image/jpeg', 0.7));
+
+  updateCaptureProgress();
+  document.getElementById('reg-label').textContent = `CAPTURED ${capturedDescriptors.length}/3`;
+
+  if (capturedDescriptors.length >= 1) {
+    document.getElementById('btn-save-student').disabled = false;
+  }
+
+  toast(`Sample ${capturedDescriptors.length} captured! ${capturedDescriptors.length < 3 ? 'Capture more for accuracy.' : 'Ready to save!'}`, 'success');
+
+  setTimeout(() => {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    document.getElementById('reg-label').textContent = 'LIVE';
+  }, 2000);
+}
+
+function updateCaptureProgress() {
+  const wrap = document.getElementById('capture-progress');
+  const previews = document.getElementById('captured-previews');
+
+  wrap.innerHTML = '';
+  for (let i = 0; i < 3; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'capture-dot' + (i < capturedDescriptors.length ? ' filled' : '');
+    dot.title = `Sample ${i+1}`;
+    wrap.appendChild(dot);
+  }
+
+  previews.innerHTML = '';
+  capturedImages.forEach((src, i) => {
+    const img = document.createElement('img');
+    img.src = src;
+    img.style.cssText = 'width:60px;height:60px;border-radius:8px;object-fit:cover;border:2px solid var(--green)';
+    img.title = `Sample ${i+1}`;
+    previews.appendChild(img);
+  });
+
+  if (capturedImages.length === 0) {
+    previews.innerHTML = '<div style="color:var(--muted);font-size:0.8rem;padding:8px 0">No captures yet</div>';
+  }
+}
+
+async function saveStudent() {
+  const name = document.getElementById('reg-name').value.trim();
+  if (!name) { toast('Name is required', 'error'); return; }
+  if (capturedDescriptors.length === 0) { toast('Capture at least one face sample', 'error'); return; }
+
+  const sid = document.getElementById('reg-id').value.trim() || `STU-${Date.now()}`;
+  const cls = document.getElementById('reg-class').value.trim() || '—';
+
+  const student = {
+    id: Date.now(),
+    name,
+    sid,
+    cls,
+    descriptors: capturedDescriptors.slice(),
+    photoUrl: capturedImages[0] || null,
+    registeredAt: new Date().toISOString()
+  };
+
+  students.push(student);
+  saveToStorage();
+  updateUI();
+  buildFaceMatchers();
+  toast(`✓ ${name} registered successfully!`, 'success');
+  resetRegForm();
+}
+
+function resetRegForm() {
+  document.getElementById('reg-name').value = '';
+  document.getElementById('reg-id').value = '';
+  document.getElementById('reg-class').value = '';
+  capturedDescriptors = [];
+  capturedImages = [];
+  updateCaptureProgress();
+  document.getElementById('btn-save-student').disabled = true;
+  document.getElementById('reg-label').textContent = 'STANDBY';
+  const canvas = document.getElementById('reg-canvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+}
+
+function deleteStudent(id) {
+  if (!confirm('Remove this student and all their face data?')) return;
+  students = students.filter(s => s.id !== id);
+  saveToStorage();
+  buildFaceMatchers();
+  updateUI();
+  toast('Student removed', 'info');
+}
+
+function clearAllStudents() {
+  if (!confirm('Delete ALL registered students? This cannot be undone.')) return;
+  students = [];
+  saveToStorage();
+  buildFaceMatchers();
+  updateUI();
+  toast('All students cleared', 'info');
+}
+
+// ════════════════════════════════════════════════════════
+//  FACE MATCHERS
+// ════════════════════════════════════════════════════════
+function buildFaceMatchers() {
+  if (students.length === 0) { labeledFaceMatchers = []; return; }
+  labeledFaceMatchers = students
+    .filter(s => s.descriptors && s.descriptors.length > 0)
+    .map(s => new faceapi.LabeledFaceDescriptors(s.name + '||' + s.id, s.descriptors));
+}
+
+// ════════════════════════════════════════════════════════
+//  ATTENDANCE CAMERA
+// ════════════════════════════════════════════════════════
+async function startAttendanceCamera() {
+  if (students.length === 0) {
+    toast('Please register at least one student first', 'error');
+    return;
+  }
+
+  try {
+    if (attStream) { attStream.getTracks().forEach(t => t.stop()); }
+    attStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+      audio: false
+    });
+    const vid = document.getElementById('att-video');
+    vid.srcObject = attStream;
+    await vid.play();
+    document.getElementById('btn-start-scan').disabled = false;
+    document.getElementById('att-label').textContent = 'LIVE';
+    toast('Camera ready. Press "Start Scan" to begin recognition.', 'info');
+  } catch(e) {
+    toast('Camera error: ' + e.message, 'error');
+  }
+}
+
+function toggleScan() {
+  if (scanning) {
+    stopScan();
+  } else {
+    startScan();
+  }
+}
+
+function startScan() {
+  if (!modelsLoaded || labeledFaceMatchers.length === 0) {
+    toast('No students registered or models not ready', 'error');
+    return;
+  }
+
+  scanning = true;
+  recognizedThisSession = {};
+  document.getElementById('btn-start-scan').textContent = '⏹ Stop Scan';
+  document.getElementById('btn-start-scan').className = 'btn btn-danger';
+  document.getElementById('scan-line').style.display = 'block';
+  document.getElementById('att-label').textContent = 'SCANNING...';
+  document.getElementById('recognized-list').innerHTML = '';
+
+  scanInterval = setInterval(runRecognition, 1200);
+  toast('Scanning started. Face the camera to mark attendance.', 'success');
+}
+
+function stopScan() {
+  scanning = false;
+  clearInterval(scanInterval);
+  document.getElementById('btn-start-scan').textContent = '▶ Start Scan';
+  document.getElementById('btn-start-scan').className = 'btn btn-primary';
+  document.getElementById('scan-line').style.display = 'none';
+  document.getElementById('att-label').textContent = 'PAUSED';
+  toast('Scanning stopped.', 'info');
+}
+
+async function runRecognition() {
+  if (!scanning) return;
+  const vid = document.getElementById('att-video');
+  const canvas = document.getElementById('att-canvas');
+
+  const threshold = parseFloat(document.getElementById('threshold').value);
+  const matcher = new faceapi.FaceMatcher(labeledFaceMatchers, threshold);
+
+  let detections;
+  try {
+    detections = await faceapi
+      .detectAllFaces(vid, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.4 }))
+      .withFaceLandmarks()
+      .withFaceDescriptors();
+  } catch(e) { return; }
+
+  canvas.width = vid.videoWidth;
+  canvas.height = vid.videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  if (!detections || detections.length === 0) return;
+
+  const dims = { width: vid.videoWidth, height: vid.videoHeight };
+  const resized = faceapi.resizeResults(detections, dims);
+
+  resized.forEach(detection => {
+    const match = matcher.findBestMatch(detection.descriptor);
+    const box = detection.detection.box;
+    const isUnknown = match.label === 'unknown';
+    const color = isUnknown ? '#ef4444' : '#10b981';
+    const confidence = Math.round((1 - match.distance) * 100);
+
+    // Draw box
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(box.x, box.y, box.width, box.height);
+    ctx.fillStyle = color + '22';
+    ctx.fillRect(box.x, box.y, box.width, box.height);
+
+    // Label background
+    const label = isUnknown ? 'UNKNOWN' : match.label.split('||')[0];
+    const labelText = isUnknown ? '? UNKNOWN' : `✓ ${label} (${confidence}%)`;
+    ctx.fillStyle = color;
+    ctx.fillRect(box.x, box.y - 22, ctx.measureText(labelText).width + 10, 22);
+    ctx.fillStyle = isUnknown ? '#fff' : '#000';
+    ctx.font = 'bold 11px Space Mono, monospace';
+    ctx.fillText(labelText, box.x + 5, box.y - 7);
+
+    // Mark attendance
+    if (!isUnknown && confidence >= 45) {
+      const studentId = match.label.split('||')[1];
+      const student = students.find(s => String(s.id) === String(studentId));
+      if (student && !recognizedThisSession[student.id]) {
+        markPresent(student, confidence);
+      }
+    }
+  });
+}
+
+function markPresent(student, confidence) {
+  const now = new Date();
+  const time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const date = now.toLocaleDateString('en-CA'); // YYYY-MM-DD
+  const session = document.getElementById('session-name').value.trim() || 'Session';
+
+  const hour = now.getHours();
+  const status = hour < 9 ? 'On Time' : hour < 11 ? 'On Time' : 'Late';
+
+  recognizedThisSession[student.id] = true;
+
+  const entry = {
+    id: Date.now() + Math.random(),
+    name: student.name,
+    sid: student.sid,
+    cls: student.cls,
+    date,
+    time,
+    session,
+    status,
+    confidence: confidence + '%'
+  };
+
+  attendanceRecords.push(entry);
+  saveToStorage();
+
+  // Add to recognized list UI
+  addToRecognizedList(student, entry, confidence);
+  updateBadge();
+  updateStats();
+}
+
+function addToRecognizedList(student, entry, confidence) {
+  const list = document.getElementById('recognized-list');
+
+  // Remove empty state
+  const empty = list.querySelector('.empty-state');
+  if (empty) empty.remove();
+
+  const item = document.createElement('div');
+  item.className = 'recognized-item new';
+  item.innerHTML = `
+    <div class="ri-avatar">
+      ${student.photoUrl ? `<img src="${student.photoUrl}" style="width:100%;height:100%;object-fit:cover">` : student.name.charAt(0)}
+    </div>
+    <div class="ri-info">
+      <div class="ri-name">${student.name}</div>
+      <div class="ri-time">${entry.date} · ${entry.time} · ${entry.status}</div>
+      <div class="conf-bar"><div class="conf-fill" style="width:${confidence}%;background:${confidence>70?'var(--green)':confidence>50?'var(--yellow)':'var(--red)'}"></div></div>
+    </div>
+    <div class="ri-conf" style="color:${confidence>70?'var(--green)':confidence>50?'var(--yellow)':'var(--red)'}">${confidence}%</div>
+  `;
+
+  list.insertBefore(item, list.firstChild);
+
+  const count = Object.keys(recognizedThisSession).length;
+  document.getElementById('rec-count').textContent = count;
+
+  setTimeout(() => item.classList.remove('new'), 1000);
+  toast(`✓ ${student.name} marked present`, 'success');
+}
+
+function saveAttendanceSession() {
+  const count = Object.keys(recognizedThisSession).length;
+  if (count === 0) { toast('No attendance recorded yet', 'error'); return; }
+  saveToStorage();
+  toast(`Session saved! ${count} student(s) marked present.`, 'success');
+  updateBadge();
+}
+
+// ════════════════════════════════════════════════════════
+//  RECORDS
+// ════════════════════════════════════════════════════════
+function renderRecordsTable() {
+  const tbody = document.getElementById('records-tbody');
+  const fd = document.getElementById('filter-date').value.toLowerCase();
+  const fs = document.getElementById('filter-student').value.toLowerCase();
+  const fsess = document.getElementById('filter-session').value.toLowerCase();
+
+  let filtered = attendanceRecords.filter(r => {
+    return (!fd || r.date.includes(fd)) &&
+           (!fs || r.name.toLowerCase().includes(fs) || r.sid.toLowerCase().includes(fs)) &&
+           (!fsess || r.session.toLowerCase().includes(fsess));
+  });
+
+  // Sort newest first
+  filtered.sort((a,b) => b.id - a.id);
+
+  document.getElementById('showing-count').textContent = filtered.length;
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="icon">📋</div><p>No records match filters.</p></div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map((r, i) => `
+    <tr>
+      <td style="color:var(--muted);font-family:var(--mono);font-size:0.75rem">${i+1}</td>
+      <td><strong>${r.name}</strong></td>
+      <td style="font-family:var(--mono);font-size:0.78rem;color:var(--muted)">${r.sid}</td>
+      <td>${r.cls}</td>
+      <td style="font-family:var(--mono);font-size:0.78rem">${r.date}</td>
+      <td style="font-family:var(--mono);font-size:0.78rem">${r.time}</td>
+      <td>${r.session}</td>
+      <td><span class="badge ${r.status==='Late'?'badge-late':'badge-present'}">● ${r.status}</span></td>
+      <td style="font-family:var(--mono);font-size:0.78rem;color:var(--green)">${r.confidence}</td>
+    </tr>
+  `).join('');
+}
+
+function updateStats() {
+  document.getElementById('stat-total').textContent = [...new Set(attendanceRecords.map(r=>r.date+'_'+r.session))].length;
+  document.getElementById('stat-entries').textContent = attendanceRecords.length;
+  document.getElementById('stat-students').textContent = [...new Set(attendanceRecords.map(r=>r.name))].length;
+  const today = new Date().toLocaleDateString('en-CA');
+  document.getElementById('stat-today').textContent = attendanceRecords.filter(r=>r.date===today).length;
+}
+
+function clearFilters() {
+  document.getElementById('filter-date').value = '';
+  document.getElementById('filter-student').value = '';
+  document.getElementById('filter-session').value = '';
+  renderRecordsTable();
+}
+
+function clearAllRecords() {
+  if (!confirm('Delete ALL attendance records?')) return;
+  attendanceRecords = [];
+  saveToStorage();
+  renderRecordsTable();
+  updateBadge();
+  updateStats();
+  toast('All records cleared', 'info');
+}
+
+// ════════════════════════════════════════════════════════
+//  CSV EXPORT
+// ════════════════════════════════════════════════════════
+function exportCSV() {
+  if (attendanceRecords.length === 0) { toast('No records to export', 'error'); return; }
+
+  const fd = document.getElementById('filter-date').value.toLowerCase();
+  const fs = document.getElementById('filter-student').value.toLowerCase();
+  const fsess = document.getElementById('filter-session').value.toLowerCase();
+
+  let filtered = attendanceRecords.filter(r =>
+    (!fd || r.date.includes(fd)) &&
+    (!fs || r.name.toLowerCase().includes(fs) || r.sid.toLowerCase().includes(fs)) &&
+    (!fsess || r.session.toLowerCase().includes(fsess))
+  );
+
+  filtered.sort((a,b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
+
+  const headers = ['#','Student Name','Student ID','Class','Date','Time','Session','Status','Confidence'];
+  const rows = filtered.map((r,i) =>
+    [i+1, r.name, r.sid, r.cls, r.date, r.time, r.session, r.status, r.confidence]
+      .map(v => `"${String(v).replace(/"/g,'""')}"`)
+      .join(',')
+  );
+
+  const csv = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const date = new Date().toLocaleDateString('en-CA');
+  a.href = url;
+  a.download = `attendance_${date}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast(`✓ Exported ${filtered.length} records to CSV`, 'success');
+}
+
+// ════════════════════════════════════════════════════════
+//  UI HELPERS
+// ════════════════════════════════════════════════════════
+function updateUI() {
+  // Student count
+  document.getElementById('student-count').textContent = students.length;
+  document.getElementById('att-reg-count').textContent = students.length;
+
+  // Student grid
+  const grid = document.getElementById('student-grid');
+  if (students.length === 0) {
+    grid.innerHTML = `<div class="empty-state"><div class="icon">🎓</div><p>No students registered yet.<br>Add your first student above.</p></div>`;
+    return;
+  }
+
+  grid.innerHTML = students.map(s => `
+    <div class="student-card">
+      <button class="delete-btn" onclick="deleteStudent(${s.id})">✕</button>
+      <div class="student-avatar">
+        ${s.photoUrl ? `<img src="${s.photoUrl}" alt="${s.name}">` : s.name.charAt(0)}
+      </div>
+      <div class="student-name">${s.name}</div>
+      <div class="student-id">${s.sid}</div>
+      <div class="student-id" style="color:var(--accent2);margin-top:2px">${s.cls !== '—' ? s.cls : ''}</div>
+      <div class="student-id" style="margin-top:4px">${s.descriptors.length} sample${s.descriptors.length!==1?'s':''}</div>
+    </div>
+  `).join('');
+
+  updateBadge();
+  updateStats();
+}
+
+function updateBadge() {
+  document.getElementById('records-badge').textContent = attendanceRecords.length;
+}
+
+function toast(msg, type = 'info') {
+  const container = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  const icons = { success: '✓', error: '✕', info: 'ℹ' };
+  t.className = `toast ${type}`;
+  t.innerHTML = `<span>${icons[type] || 'ℹ'}</span><span>${msg}</span>`;
+  container.appendChild(t);
+  setTimeout(() => {
+    t.style.opacity = '0';
+    t.style.transform = 'translateX(100px)';
+    t.style.transition = 'all 0.3s';
+    setTimeout(() => t.remove(), 300);
+  }, 3500);
+}
+
+// ════════════════════════════════════════════════════════
+//  CLEANUP on page unload
+// ════════════════════════════════════════════════════════
+window.addEventListener('beforeunload', () => {
+  if (regStream) regStream.getTracks().forEach(t => t.stop());
+  if (attStream) attStream.getTracks().forEach(t => t.stop());
+  if (scanInterval) clearInterval(scanInterval);
+});
+</script>
+</body>
+</html>
